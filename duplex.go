@@ -77,14 +77,15 @@ func serve(conn *websocket.Conn, sendChan chan []byte) {
 		conn.Close()
 	}()
 
+	conn.SetPongHandler(func(string) error {
+		//fmt.Println("Received ping")
+		conn.SetReadDeadline(time.Now().Add(pingTimeout))
+		return nil
+	})
+
 	// Reader
 	go func() {
 		conn.SetReadDeadline(time.Now().Add(pingTimeout))
-		conn.SetPongHandler(func(string) error {
-			//fmt.Println("Received ping")
-			conn.SetReadDeadline(time.Now().Add(pingTimeout))
-			return nil
-		})
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
@@ -101,8 +102,13 @@ func serve(conn *websocket.Conn, sendChan chan []byte) {
 
 	stopReader := func() {
 		fmt.Println("Stopping reader")
+		// Will no longer increase deadline when ping is received
+		conn.SetPongHandler(func(string) error {
+			return nil
+		})
+		conn.SetReadDeadline(time.Now())
+		// Will no longer send pings to peer
 		ticker.Stop()
-		//conn.SetReadDeadline(time.Now())
 	}
 
 	connected := true
